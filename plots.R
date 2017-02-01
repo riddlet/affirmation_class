@@ -7,6 +7,7 @@ df.class <- read.csv('output/classifier_features.cvs')
 df.nn <- read.csv('output/nn_probs.csv')
 df.lda <- read.csv('output/lda_features.csv', col.names = c('topic', 'feature',
                                                             'class', 'coef'))
+df.w.wo <- read.csv('output/w_wo_nnprobs.csv')
 
 df.class %>%
   spread(class, coef) -> plot.dat
@@ -21,7 +22,6 @@ df.nn %>%
   select(class, prob, row_feat) %>% 
   spread(class, prob) -> plot.dat
 plot.dat %>% select(-row_feat) %>% ggpairs() + theme_minimal()
-
 
 df.nn %>%
   left_join(df.class) %>% 
@@ -138,4 +138,35 @@ ggplot(plot.dat) +
   geom_text(data=text.dat, aes(x=word_num, y=-.7, label=feature), 
             size=2.5, color='black', angle=20)
 
+df.w.wo %>%
+  group_by(sentence_num, class, cond) %>%
+  mutate(word_num = row_number(),
+         prob_sum = cumsum(prob)) %>%
+  ungroup() %>%
+  filter(pos=='VERB') -> plot.dat
+
+text.dat <- plot.dat %>% 
+  select(word_num, word, sentence_num, cond, class) %>%
+  distinct()
   
+
+ggplot(plot.dat) + 
+  geom_line(aes(x=word_num, y=prob_sum, group=sentence_num)) + 
+  geom_text(data=text.dat, aes(x=word_num, y=-.7, label=word), 
+            size=2.5, color='black', angle=20) +
+  facet_grid(cond~class)
+  
+df.w.wo %>%
+  group_by(sentence_num, class, cond) %>%
+  mutate(word_num = row_number(),
+         prob_sum = cumsum(prob)) %>%
+  mutate(key_word = word_num == max(word_num)) %>%
+  ungroup() %>%
+  filter(key_word==TRUE) -> plot.dat
+
+ggplot(plot.dat) + 
+  geom_point(aes(x=cond, y=prob, group=sentence_num), position=position_jitter(width=.25)) +
+  geom_line(aes(x=cond, y=prob, group=sentence_num), alpha=.25) +
+  facet_grid(pos~class) + 
+  stat_summary(aes(x=cond, y=prob), fun.y='mean', geom='point', size=4, color='red')
+
