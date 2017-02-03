@@ -2,6 +2,8 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(GGally)
+library(forcats)
+library(magrittr)
 
 df.class <- read.csv('output/classifier_features.cvs')
 df.nn <- read.csv('output/nn_probs.csv')
@@ -37,9 +39,18 @@ dev.off()
 df.nn %>%
   left_join(df.class) %>% 
   group_by(class) %>%
-  mutate(Corr = cor(prob, coef, use = 'complete')) -> plot.dat
+  mutate(Corr = cor(prob, coef, use = 'complete')) %>%
+  ungroup() -> plot.dat
+
+plot.dat %>% 
+  mutate(class = fct_recode(class,
+                            'Treatment-Female' = 'aff_f',
+                            'Treatment-Male' = 'aff_m',
+                            'Control-Female' = 'control_f',
+                            'Control-Male' = 'control_m'))
 
 text.dat <- plot.dat %>% select(class, Corr) %>% unique()
+
 
 jpeg('output/figures/nn_svm_corr.jpeg', width=1000, height=700)
 ggplot(plot.dat, aes(x=coef, y=prob)) +
@@ -55,17 +66,32 @@ df.nn %>%
   summarise(m_prob = mean(prob)) %>%
   left_join(df.class) %>%
   group_by(class) %>%
-  mutate(Corr = cor(m_prob, coef, use='complete')) -> plot.dat
+  mutate(Corr = cor(m_prob, coef, use='complete')) %>%
+  ungroup() -> plot.dat
+
+plot.dat %<>% 
+  mutate(class = fct_recode(class,
+                            'Treatment-Female' = 'aff_f',
+                            'Treatment-Male' = 'aff_m',
+                            'Control-Female' = 'control_f',
+                            'Control-Male' = 'control_m'))
 
 text.dat <- plot.dat %>% select(class, Corr) %>% unique()
+
 
 jpeg('output/figures/nn_svm_corr_avg.jpeg', width=1000, height=700)
 ggplot(plot.dat, aes(x=coef, y=m_prob)) +
   geom_point() + 
   facet_wrap(~class) + 
-  geom_text(data=text.dat, aes(x=-3.5, y=.5, label=paste('Corr:', round(Corr,3)))) +
-  ggtitle('Neural Net-SVM Correlations', 'Probabilities averaged over features') +
-  theme_minimal()
+  geom_text(data=text.dat, aes(x=-2.5, y=.5, label=paste('Corr:', round(Corr,2))),
+            size=8) +
+#  ggtitle('Neural Net-SVM Correlations', 'Probabilities averaged over features') +
+  theme_minimal() +
+  ylab('Probability Change') +
+  xlab('SVM Coefficient') + 
+  theme(strip.text = element_text(size=12),
+        axis.title = element_text(size=12, face='bold'),
+        axis.text = element_text(size=12))
 dev.off()
 
 df.nn %>% 
@@ -98,16 +124,29 @@ df.nn %>%
   ungroup() %>%
   filter(essay_num==102) -> plot.dat
 
+plot.dat %<>% 
+  mutate(class = fct_recode(class,
+                            'Treatment-Female' = 'aff_f',
+                            'Treatment-Male' = 'aff_m',
+                            'Control-Female' = 'control_f',
+                            'Control-Male' = 'control_m'))
+
 text.dat <- plot.dat %>% select(word_num, feature)
 
-jpeg('output/figures/model_preds1.jpeg', width=1000, height=700)
+jpeg('output/figures/model_preds_example.jpeg', width=1000, height=700)
 ggplot(plot.dat) + 
-  geom_line(aes(x=word_num, y=prob_sum, group=class, color=class)) +
+  geom_line(aes(x=word_num, y=prob_sum, group=class, color=class, linetype=class), size=1.25) +
   geom_text(data=text.dat, aes(x=word_num, y=-.7, label=feature), 
-            size=5, color='black', angle=15) +
-  theme(legend.text = element_text(size=16),
-        legend.title = element_text(size=18)) + 
-  theme_minimal()
+            size=6, color='black', angle=25) +
+  theme_minimal() + 
+  ylab('Class Probability') + 
+  theme(legend.position='top',
+        legend.text = element_text(size=16),
+        legend.title = element_blank(),
+        axis.text.x=element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size=12),
+        axis.title.y = element_text(size=14))
 dev.off()
 
 df.nn %>%
