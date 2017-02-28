@@ -291,3 +291,94 @@ plot.dat %>% select(-row_feat) %>%
   theme_minimal() + 
   theme(title=element_text(size=14))
 dev.off()
+
+###### Justifications (might) ###########
+
+df.just <- read.csv('output/nnprobs_might.csv')
+
+df.just %>%
+  group_by(sentence_num, class, val, just) %>%
+  mutate(word_num = row_number(),
+         prob_sum = cumsum(prob_shift),
+         keyword = max(word_num)) %>%
+  ungroup() %>%
+  filter(word_num > keyword-5) %>%
+  mutate(time = abs((keyword-5)-word_num)) -> plot.dat
+
+plot.dat %<>% 
+  mutate(class = fct_recode(class,
+                            'Treatment-Female' = 'aff_f',
+                            'Treatment-Male' = 'aff_m',
+                            'Control-Female' = 'control_f',
+                            'Control-Male' = 'control_m'),
+         time = factor(time, labels = c('j-4', 'j-3', 'j-2', 'j-1', 'j')))
+
+
+jpeg('output/figures/justification_othersmight.jpeg', width=1000, height=750)
+ggplot(plot.dat, aes(x=time, y=prob)) + 
+  geom_point(position=position_jitter(width=.15)) +
+  theme_minimal() + 
+  ylab('Probability') +
+  xlab('Word position of sentence fragment from justification sentences') +
+  theme(axis.title = element_text(size=20, face='bold'),
+        axis.text = element_text(size=18),
+        strip.text = element_text(size=20, face='bold'))+
+  geom_line(aes(x=time, y=prob, group=sentence_num), alpha=.2)+
+  facet_wrap(~class)
+dev.off()
+
+df.just %>%
+  group_by(sentence_num, class, val, just) %>%
+  mutate(word_num = row_number(),
+         keyword = max(word_num)) %>%
+  ungroup() %>%
+  filter(word_num > keyword-2) %>%
+  mutate(time = abs((keyword-2)-word_num)) %>%
+  group_by(sentence_num, time, val) %>%
+  mutate(g_m = exp(mean(log(prob)))) %>%
+  ungroup() %>%
+  mutate(clr = log(prob/g_m)) -> mod.dat
+
+mod.dat %<>% 
+  mutate(class = fct_recode(class,
+                            'Treatment-Female' = 'aff_f',
+                            'Treatment-Male' = 'aff_m',
+                            'Control-Female' = 'control_f',
+                            'Control-Male' = 'control_m'),
+         time = factor(time, labels = c('s', 'j')))
+
+m1 <- stan_glmer(clr ~ class*time + (time|sentence_num) + (time|val) + 
+                   (time|just) + (time|sentence_num:val:just), 
+                 data=mod.dat, prior=normal(0,1))
+
+posterior <- as.data.frame(m1$stanfit, pars=names(m1$coefficients[1:8]))
+
+posterior %<>%
+  mutate(fem_just = `(Intercept)` + timej + `classControl-Female` + `classControl-Female:timej`,
+         male_just = `(Intercept)` + timej + `classControl-Male` + `classControl-Male:timej`,
+         fem_prejust = `(Intercept)` + `classControl-Female`,
+         male_prejust = `(Intercept)` +`classControl-Male`) %>%
+  mutate(fem_diff = fem_just - fem_prejust,
+         male_diff = male_just - male_prejust) %>%
+  mutate(fem_pref = fem_diff - male_diff)
+
+mean(posterior$fem_pref)
+
+est <- mcmc_areas(posterior, pars='fem_pref', prob=.95)
+est$data$l
+est$data$h
+prop.table(table(posterior$fem_pref>0))
+
+#what does it mean?
+df.just %>%
+  group_by(sentence_num, class, val, just) %>%
+  mutate(word_num = row_number(),
+         keyword = max(word_num)) %>%
+  filter(word_num > keyword-2) %>%
+  mutate(time = abs((keyword-2)-word_num)) %>% 
+  mutate(time = factor(time, labels=c('first', 'second'))) %>%
+  ungroup() %>%
+  select(class, just, val, time, prob) %>%
+  group_by(class, time) %>%
+  summarise(mean(prob),
+            sd(prob))
