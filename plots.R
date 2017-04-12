@@ -86,6 +86,40 @@ ggplot(plot.dat) +
         axis.title.y = element_text(size=20, face='bold'))
 dev.off()
 
+#male example
+#110 (639 for an alternative with phone), 371, 788, 715, 818, 374, 774, 124, 83, 
+#560, 889, 745, 500, 743, 272, 753
+df.nn %>% 
+  filter(essay_num==110) %>% 
+  group_by(class) %>% 
+  mutate(word_num=seq_along(feature)) %>%
+  mutate(prob_sum = cumsum(prob)) %>%
+  ungroup() -> plot.dat
+names(plot.dat)[3] <- 'word'
+plot.dat %<>% 
+  mutate(class = fct_recode(class,
+                            'Treatment-Female' = 'aff_f',
+                            'Treatment-Male' = 'aff_m',
+                            'Control-Female' = 'control_f',
+                            'Control-Male' = 'control_m'))
+plot.dat %>% select(word_num, word) -> text.dat
+
+jpeg('output/figures/model_preds_example2.jpeg', width=1000, height=700)
+ggplot(plot.dat) + 
+  geom_line(aes(x=word_num, y=prob_sum, group=class, color=class, linetype=class), size=1.25) +
+  geom_text(data=text.dat, aes(x=word_num, y=-.7, label=word), 
+            size=8, color='black', angle=30) +
+  theme_minimal() + 
+  ylab('Class Probability') + 
+  theme(legend.position='top',
+        legend.text = element_text(size=20),
+        legend.title = element_blank(),
+        axis.text.x=element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size=18),
+        axis.title.y = element_text(size=20, face='bold'))
+dev.off()
+
 ###### Justifications (others) ###########
 
 df.just <- read.csv('output/nnprobs_just.csv')
