@@ -130,8 +130,26 @@ df.just %>%
          prob_sum = cumsum(prob_shift),
          keyword = max(word_num)) %>%
   ungroup() %>%
-  filter(word_num > keyword-5) %>%
-  mutate(time = abs((keyword-5)-word_num)) -> plot.dat
+  filter(word_num > keyword-2) %>%
+  mutate(time = abs((keyword-2)-word_num)) -> plot.dat
+
+plot.dat %>% 
+  filter(word_num==keyword) %>%
+  mutate(increasing = prob_shift>0) %>%
+  select(class, just, sentence_num, val, increasing) %>%
+  right_join(plot.dat) -> plot.dat
+
+ggplot(plot.dat, aes(x=time, y=prob)) + 
+  geom_point(position=position_jitter(width=.15)) +
+  theme_minimal() + 
+  ylab('Probability') +
+  xlab('Word position of sentence fragment from justification sentences') +
+  theme(axis.title = element_text(size=20, face='bold'),
+        axis.text = element_text(size=18),
+        strip.text = element_text(size=20, face='bold'))+
+  geom_line(aes(x=time, y=prob, group=sentence_num), alpha=.2)+
+  facet_grid(class~increasing)
+
 
 plot.dat %<>% 
   mutate(class = fct_recode(class,
@@ -154,6 +172,26 @@ ggplot(plot.dat, aes(x=time, y=prob)) +
   geom_line(aes(x=time, y=prob, group=sentence_num), alpha=.2)+
   facet_wrap(~class)
 dev.off()
+
+
+df.just %>%
+  group_by(sentence_num, class, val, just) %>%
+  mutate(word_num = row_number(),
+         prob_sum = cumsum(prob_shift),
+         keyword = max(word_num)) %>%
+  ungroup() %>%
+  filter(word_num == keyword) -> plot.dat
+plot.dat %<>% 
+  mutate(class = fct_recode(class,
+                            'Treatment-Female' = 'aff_f',
+                            'Treatment-Male' = 'aff_m',
+                            'Control-Female' = 'control_f',
+                            'Control-Male' = 'control_m'))
+
+ggplot(plot.dat, aes(x=class, y=prob_shift)) + geom_point(position=position_jitter(width=.15)) +
+  theme_minimal() +
+  stat_summary(fun.y='mean', geom='point') +
+  stat_summary(fun.data='mean_cl_boot', geom='errorbar')
 
 df.just %>%
   group_by(sentence_num, class, val, just) %>%
@@ -221,8 +259,8 @@ df.just %>%
          prob_sum = cumsum(prob_shift),
          keyword = max(word_num)) %>%
   ungroup() %>%
-  filter(word_num > keyword-5) %>%
-  mutate(time = abs((keyword-5)-word_num)) -> plot.dat
+  filter(word_num > keyword-2) %>%
+  mutate(time = abs((keyword-2)-word_num)) -> plot.dat
 
 plot.dat %<>% 
   mutate(class = fct_recode(class,
@@ -245,6 +283,41 @@ ggplot(plot.dat, aes(x=time, y=prob)) +
   geom_line(aes(x=time, y=prob, group=sentence_num), alpha=.25)+
   facet_wrap(~class)
 dev.off()
+
+df.just %>%
+  group_by(sentence_num, class, val, just) %>%
+  mutate(word_num = row_number(),
+         prob_sum = cumsum(prob_shift),
+         keyword = max(word_num)) %>%
+  ungroup() %>%
+  filter(word_num == keyword) -> plot.dat
+plot.dat %<>% 
+  mutate(class = fct_recode(class,
+                            'Treatment-Female' = 'aff_f',
+                            'Treatment-Male' = 'aff_m',
+                            'Control-Female' = 'control_f',
+                            'Control-Male' = 'control_m'))
+
+ggplot(plot.dat, aes(x=class, y=prob_shift)) + geom_point(position=position_jitter(width=.15)) +
+  theme_minimal() +
+  stat_summary(fun.y='mean', geom='point') +
+  stat_summary(fun.data='mean_cl_boot', geom='errorbar')
+
+df.just %>%
+  group_by(sentence_num, class, val, just) %>%
+  mutate(word_num = row_number(),
+         keyword = max(word_num)) %>%
+  ungroup() %>%
+  filter(word_num == keyword) %>%
+  group_by(sentence_num, val) %>%
+  mutate(g_m = exp(mean(log(prob)))) %>%
+  ungroup() %>%
+  mutate(clr = log(prob/g_m)) -> plot.dat
+
+ggplot(plot.dat, aes(x=class, y=clr)) + geom_point(position=position_jitter(width=.15)) +
+  theme_minimal() +
+  stat_summary(fun.y='mean', geom='point') +
+  stat_summary(fun.data='mean_cl_boot', geom='errorbar')
 
 df.just %>%
   group_by(sentence_num, class, val, just) %>%
